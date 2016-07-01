@@ -93,13 +93,13 @@ define postgresql::server::grant (
         'ALL'   => 'USAGE',
         default => $_privilege,
       }
-      validate_string($unless_privilege,'USAGE','ALL','ALL PRIVILEGES')
+      validate_string($unless_privilege,'SELECT','USAGE','ALL','ALL PRIVILEGES')
       $unless_function = 'has_sequence_privilege'
       $on_db = $db
       $onlyif_function = undef
     }
     'ALL SEQUENCES IN SCHEMA': {
-      validate_string($_privilege,'USAGE','ALL','ALL PRIVILEGES')
+      validate_string($_privilege,'USAGE','SELECT','ALL','ALL PRIVILEGES')
       $unless_function = 'custom'
       $on_db = $db
       $onlyif_function = undef
@@ -111,7 +111,7 @@ define postgresql::server::grant (
         'ALL PRIVILEGES' => 'USAGE',
         default          => $_privilege,
       }
-      
+
       # This checks if there is a difference between the sequences in the
       # specified schema and the sequences for which the role has the specified
       # privilege. It uses the EXCEPT clause which computes the set of rows
@@ -127,15 +127,11 @@ define postgresql::server::grant (
         SELECT sequence_name
         FROM information_schema.sequences
         WHERE sequence_schema='${schema}'
-          EXCEPT DISTINCT
-        SELECT object_name as sequence_name
-        FROM information_schema.role_usage_grants
-        WHERE object_type='SEQUENCE'
-        AND grantee='${role}'
-        AND object_schema='${schema}'
-        AND privilege_type='${custom_privilege}'
-        ) P
-        HAVING count(P.sequence_name) = 0"
+        EXCEPT DISTINCT
+        SELECT sequence_name FROM information_schema.sequences
+        WHERE sequence_schema='${schema}' and
+        has_sequence_privilege('${role}', ('${schema}.'||sequence_name), '${custom_privilege}') is true) as foo
+        HAVING count(foo.sequence_name) = 0"
     }
     'TABLE': {
       $unless_privilege = $_privilege ? {

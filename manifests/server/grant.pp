@@ -128,9 +128,9 @@ define postgresql::server::grant (
         FROM information_schema.sequences
         WHERE sequence_schema='${schema}'
         EXCEPT DISTINCT
-        SELECT sequence_name FROM information_schema.sequences
-        WHERE sequence_schema='${schema}' and
-        has_sequence_privilege('${role}', ('${schema}.'||sequence_name), '${custom_privilege}') is true) as foo
+        SELECT sequence_name FROM
+        (SELECT sequence_name, has_sequence_privilege('${role}', (sequence_schema||'.'||sequence_name), '${custom_privilege}')
+        FROM  information_schema.sequences WHERE sequence_schema = '${schema}') as seqs where has_sequence_privilege is true) as foo
         HAVING count(foo.sequence_name) = 0"
     }
     'TABLE': {
